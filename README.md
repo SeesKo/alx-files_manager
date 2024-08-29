@@ -4,6 +4,13 @@
 
 This project is a simple file management system that allows users to authenticate, upload, view, and manage files. It is built using Node.js, Express, MongoDB, and Redis. The project is designed as a learning exercise to demonstrate the integration of various back-end technologies including user authentication, file storage, and background processing.
 
+## Requirements
+
+- Ubuntu 18.04 LTS
+- `node` (version 12.x.x)
+- Code should use the `js` extension
+- Code will be verified against lint using `ESLint`
+
 ## Features
 
 - **User Authentication:** Users can register and log in using a token-based authentication system.
