@@ -48,5 +48,5 @@ class RedisClient {
 }
 
 // Export instance of RedisClient for use in other modules
-export const redisClient = new RedisClient();
+const redisClient = new RedisClient();
 export default redisClient;
