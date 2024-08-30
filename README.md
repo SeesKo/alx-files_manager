@@ -40,7 +40,3 @@ This project is a simple file management system that allows users to authenticat
 - **List Files:** `GET /api/files`
 - **Change File Permission:** `PUT /api/files/:id/permission`
 - **View File:** `GET /api/files/:id`
-
-# License
-
-This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
