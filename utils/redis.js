@@ -1,10 +1,10 @@
 const { createClient } = require('redis');
 const { promisify } = require('util');
 
-// Define a class to handle Redis client operations
+// Define class to handle Redis client operations
 class RedisClient {
   constructor() {
-    // Create a new Redis client instance
+    // Create new Redis client instance
     this.client = createClient();
 
     // Set initial connection status
@@ -31,22 +31,22 @@ class RedisClient {
     return this.client.connected;
   }
 
-  // Get a value from Redis by key
+  // Get value from Redis by key
   async get(key) {
     return this.getAsync(key);
   }
 
-  // Set a value in Redis with an expiration time
+  // Set value in Redis with an expiration time
   async set(key, value, duration) {
     await this.setexAsync(key, duration, value);
   }
 
-  // Delete a value from Redis by key
+  // Delete value from Redis by key
   async del(key) {
     await this.delAsync(key);
   }
 }
 
-// Export an instance of RedisClient for use in other modules
+// Export instance of RedisClient for use in other modules
 export const redisClient = new RedisClient();
 export default redisClient;
