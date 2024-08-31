@@ -139,18 +139,13 @@ class FilesController {
 
     // Validate and convert parentId and userId
     const userObjId = ObjectId.isValid(userId) ? ObjectId(userId) : null;
-
     let parentObjId;
+
     if (parentId === '0') {
       parentObjId = '0';
     } else if (ObjectId.isValid(parentId)) {
       parentObjId = ObjectId(parentId);
     } else {
-      parentObjId = null;
-    }
-
-    // If parentObjId is invalid and not '0', return an error
-    if (parentObjId === null && parentId !== '0') {
       return res.status(400).json({ error: 'Invalid parentId' });
     }
 
