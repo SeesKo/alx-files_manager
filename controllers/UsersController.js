@@ -1,5 +1,5 @@
-import dbClient from '../utils/db';
 import crypto from 'crypto';
+import dbClient from '../utils/db';
 
 class UsersController {
   static async postNew(req, res) {
@@ -13,7 +13,7 @@ class UsersController {
       return res.status(400).json({ error: 'Missing password' });
     }
 
-    const db = dbClient.db;
+    const { db } = dbClient;
 
     // Check if the email already exists
     const existingUser = await db.collection('users').findOne({ email });
@@ -27,7 +27,7 @@ class UsersController {
     // Create the new user
     const result = await db.collection('users').insertOne({
       email,
-      password: hashedPassword
+      password: hashedPassword,
     });
 
     // Return the new user with ID and email
