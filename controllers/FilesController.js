@@ -128,7 +128,7 @@ class FilesController {
     const files = await dbClient.db.collection('files').aggregate([
       { $match: { userId: ObjectId(userId), parentId: parentId === '0' ? '0' : ObjectId(parentId) } },
       { $skip: skip },
-      { $limit: limit }
+      { $limit: limit },
     ]).toArray();
 
     return res.json(files);
