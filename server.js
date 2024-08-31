@@ -1,7 +1,10 @@
 import express from 'express';
-import { router } from './routes/index';
+import router from './routes/index';
 
 const app = express();
+
+// Middleware to parse incoming JSON bodies
+app.use(express.json());
 
 // Use PORT from environment or default to 5000
 const port = process.env.PORT || 5000;
