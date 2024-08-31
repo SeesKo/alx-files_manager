@@ -1,28 +1,28 @@
 import { v4 as uuidv4 } from 'uuid';
-import { promises as fs } from 'fs';
 import { ObjectId } from 'mongodb';
-import redisClient from '../utils/redis';
+import fs from 'fs';
+import { promisify } from 'util';
 import dbClient from '../utils/db';
+import redisClient from '../utils/redis';
+
+const mkdirAsync = promisify(fs.mkdir);
+const writeFileAsync = promisify(fs.writeFile);
 
 class FilesController {
   static async postUpload(req, res) {
+    const {
+      name, type, parentId = 0, isPublic = false, data,
+    } = req.body;
     const token = req.headers['x-token'];
-    if (!token) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
 
+    // Check if user is authenticated
     const userId = await redisClient.get(`auth_${token}`);
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const {
-      name, type, parentId = '0', isPublic = false, data,
-    } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: 'Missing name' });
-    }
+    // Validate required fields
+    if (!name) return res.status(400).json({ error: 'Missing name' });
     if (!type || !['folder', 'file', 'image'].includes(type)) {
       return res.status(400).json({ error: 'Missing type' });
     }
@@ -30,27 +30,29 @@ class FilesController {
       return res.status(400).json({ error: 'Missing data' });
     }
 
-    let parentFile = null;
-    if (parentId !== '0') {
-      parentFile = await dbClient.db.collection('files').findOne({ _id: new ObjectId(parentId) });
-      if (!parentFile) {
-        return res.status(400).json({ error: 'Parent not found' });
-      }
-      if (parentFile.type !== 'folder') {
+    let parentDocument = null;
+    if (parentId !== 0) {
+      parentDocument = await dbClient.db.collection('files').findOne({ _id: ObjectId(parentId) });
+      if (!parentDocument) return res.status(400).json({ error: 'Parent not found' });
+      if (parentDocument.type !== 'folder') {
         return res.status(400).json({ error: 'Parent is not a folder' });
       }
     }
 
-    const fileData = {
-      userId: new ObjectId(userId),
+    const userObjId = new ObjectId(userId);
+
+    // Prepare the file object to be inserted
+    const fileDocument = {
+      userId: userObjId,
       name,
       type,
       isPublic,
-      parentId: parentId === '0' ? '0' : new ObjectId(parentId),
+      parentId: parentId === 0 ? '0' : ObjectId(parentId),
     };
 
     if (type === 'folder') {
-      const result = await dbClient.db.collection('files').insertOne(fileData);
+      // Insert folder in DB
+      const result = await dbClient.db.collection('files').insertOne(fileDocument);
       return res.status(201).json({
         id: result.insertedId,
         userId,
@@ -61,28 +63,29 @@ class FilesController {
       });
     }
 
-    const FOLDER_PATH = process.env.FOLDER_PATH || '/tmp/files_manager';
-    const localPath = `${FOLDER_PATH}/${uuidv4()}`;
+    // Handle file and image types
+    const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
+    const fileId = uuidv4();
+    const localPath = `${folderPath}/${fileId}`;
 
-    try {
-      await fs.mkdir(FOLDER_PATH, { recursive: true });
-      await fs.writeFile(localPath, Buffer.from(data, 'base64'));
+    // Create folder if not exists
+    await mkdirAsync(folderPath, { recursive: true });
 
-      fileData.localPath = localPath;
-      const result = await dbClient.db.collection('files').insertOne(fileData);
+    // Save file data to local disk
+    await writeFileAsync(localPath, Buffer.from(data, 'base64'));
 
-      return res.status(201).json({
-        id: result.insertedId,
-        userId,
-        name,
-        type,
-        isPublic,
-        parentId,
-      });
-    } catch (err) {
-      console.error('Error saving file:', err);
-      return res.status(500).json({ error: 'Internal Server Error' });
-    }
+    fileDocument.localPath = localPath;
+
+    // Insert file in DB
+    const result = await dbClient.db.collection('files').insertOne(fileDocument);
+    return res.status(201).json({
+      id: result.insertedId,
+      userId,
+      name,
+      type,
+      isPublic,
+      parentId,
+    });
   }
 }
 
