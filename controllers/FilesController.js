@@ -87,6 +87,75 @@ class FilesController {
       parentId,
     });
   }
+
+  static async getShow(req, res) {
+    const { id } = req.params;
+    const token = req.headers['x-token'];
+
+    // Check if user is authenticated
+    const userId = await redisClient.get(`auth_${token}`);
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const fileDocument = await dbClient.db.collection('files').findOne({ _id: ObjectId(id), userId: ObjectId(userId) });
+      if (!fileDocument) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+
+      return res.json({
+        id: fileDocument._id,
+        userId: fileDocument.userId,
+        name: fileDocument.name,
+        type: fileDocument.type,
+        isPublic: fileDocument.isPublic,
+        parentId: fileDocument.parentId,
+        localPath: fileDocument.localPath,
+      });
+    } catch (error) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+  }
+
+  static async getIndex(req, res) {
+    const token = req.headers['x-token'];
+
+    // Check if user is authenticated
+    const userId = await redisClient.get(`auth_${token}`);
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const parentId = req.query.parentId || '0'; // Default to root if no parentId is provided
+    const page = parseInt(req.query.page, 10) || 0; // Default to page 0 if not specified
+    const limit = 20; // Number of files per page
+    const skip = page * limit; // Calculate the number of documents to skip for pagination
+
+    try {
+      const files = await dbClient.db.collection('files')
+        .aggregate([
+          { $match: { parentId: parentId === '0' ? '0' : ObjectId(parentId), userId: ObjectId(userId) } },
+          { $skip: skip },
+          { $limit: limit },
+        ])
+        .toArray();
+
+      const formattedFiles = files.map((file) => ({
+        id: file._id,
+        userId: file.userId,
+        name: file.name,
+        type: file.type,
+        isPublic: file.isPublic,
+        parentId: file.parentId,
+        localPath: file.localPath,
+      }));
+
+      return res.json(formattedFiles);
+    } catch (error) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
 }
 
 export default FilesController;
