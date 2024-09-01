@@ -6,19 +6,24 @@ import FilesController from '../controllers/FilesController';
 
 const router = Router();
 
-// Define routes
+// Routes for application status and statistics
 router.get('/status', AppController.getStatus);
 router.get('/stats', AppController.getStats);
+
+// Routes for user management
 router.post('/users', UsersController.postNew);
-router.get('/connect', AuthController.getConnect);
-router.get('/disconnect', AuthController.getDisconnect);
 router.get('/users/me', UsersController.getMe);
 
-// New endpoints for file operations
+// Routes for authentication management
+router.get('/connect', AuthController.getConnect);
+router.get('/disconnect', AuthController.getDisconnect);
+
+// Routes for file operations
 router.post('/files', FilesController.postUpload);
 router.get('/files/:id', FilesController.getShow);
 router.get('/files', FilesController.getIndex);
 router.put('/files/:id/publish', FilesController.putPublish);
 router.put('/files/:id/unpublish', FilesController.putUnpublish);
+router.get('/files/:id/data', FilesController.getFile);
 
 export default router;
