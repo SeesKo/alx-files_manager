@@ -227,44 +227,45 @@ class FilesController {
     const { id } = req.params;
     const token = req.headers['x-token'];
 
-    // Fetch the file from the database
-    const file = await dbClient.files.findOne({ _id: ObjectId(id) });
+    // Retrieve user ID from Redis
+    const userId = await redisClient.get(`auth_${token}`);
 
-    // If file not found
-    if (!file) {
-      return res.status(404).json({ error: 'Not found' });
-    }
+    try {
+      // Fetch the file document from the database
+      const fileDocument = await dbClient.db.collection('files').findOne({ _id: ObjectId(id) });
 
-    // Check if the file is public or the request is authenticated
-    if (!file.isPublic) {
-      const userId = await redisClient.get(`auth_${token}`);
-      if (!userId || userId !== file.userId.toString()) {
+      // Handle scenarios where file document does not exist
+      if (!fileDocument) {
         return res.status(404).json({ error: 'Not found' });
       }
-    }
 
-    // If the file is a folder, return an error
-    if (file.type === 'folder') {
-      return res.status(400).json({ error: "A folder doesn't have content" });
-    }
+      // Check if file is not public and no user is authenticated or user is not the owner
+      if (!fileDocument.isPublic && (!userId || fileDocument.userId.toString() !== userId)) {
+        return res.status(404).json({ error: 'Not found' });
+      }
 
-    // Check if the file is present locally
-    const filePath = file.localPath;
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'Not found' });
-    }
+      // Check if the file type is a folder
+      if (fileDocument.type === 'folder') {
+        return res.status(400).json({ error: "A folder doesn't have content" });
+      }
 
-    // Read the file content
-    try {
-      const fileContent = await readFileAsync(filePath);
-      const mimeType = mime.lookup(file.name) || 'application/octet-stream';
+      // Check if the file exists locally
+      if (!fileDocument.localPath || !fs.existsSync(fileDocument.localPath)) {
+        return res.status(404).json({ error: 'Not found' });
+      }
 
-      // Return the content with the correct MIME type
+      // Get MIME type based on the file name
+      const mimeType = mime.lookup(fileDocument.name) || 'application/octet-stream';
+
+      // Read the content of the file
+      const fileContent = await readFileAsync(fileDocument.localPath);
+
+      // Return the content of the file with the correct MIME type
       res.setHeader('Content-Type', mimeType);
       return res.send(fileContent);
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Internal server error' });
+    } catch (error) {
+      console.error('Error fetching file:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
     }
   }
 }
