@@ -202,7 +202,8 @@ class FilesController {
     }
 
     try {
-      const fileDocument = await dbClient.db.collection('files').findOne({ _id: ObjectId(id), userId: ObjectId(userId) });
+      const fileDocument = await dbClient.db.collection('files')
+        .findOne({ _id: ObjectId(id), userId: ObjectId(userId) });
       if (!fileDocument) {
         return res.status(404).json({ error: 'Not found' });
       }
