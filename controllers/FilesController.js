@@ -2,10 +2,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { ObjectId } from 'mongodb';
 import fs from 'fs';
 import mime from 'mime-types';
+import Bull from 'bull';
 import { promisify } from 'util';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
+const fileQueue = new Bull('fileQueue');
 const mkdirAsync = promisify(fs.mkdir);
 const writeFileAsync = promisify(fs.writeFile);
 const readFileAsync = promisify(fs.readFile);
@@ -80,6 +82,12 @@ class FilesController {
 
     // Insert file in DB
     const result = await dbClient.db.collection('files').insertOne(fileDocument);
+
+    // Add job to queue for thumbnail generation
+    if (type === 'image') {
+      await fileQueue.add({ userId, fileId });
+    }
+
     return res.status(201).json({
       id: result.insertedId,
       userId,
@@ -228,6 +236,7 @@ class FilesController {
 
   static async getFile(req, res) {
     const { id } = req.params;
+    const { size } = req.query;
     const token = req.headers['x-token'];
 
     // Retrieve user ID from Redis
@@ -252,8 +261,19 @@ class FilesController {
         return res.status(400).json({ error: "A folder doesn't have content" });
       }
 
+      // Handle image file and size parameter
+      const sizeQuery = size ? parseInt(size, 10) : null;
+      let filePath = fileDocument.localPath;
+
+      if (fileDocument.type === 'image' && sizeQuery) {
+        if (![100, 250, 500].includes(sizeQuery)) {
+          return res.status(400).json({ error: 'Invalid size' });
+        }
+        filePath = `${fileDocument.localPath}_${sizeQuery}`;
+      }
+
       // Check if the file exists locally
-      if (!fileDocument.localPath || !fs.existsSync(fileDocument.localPath)) {
+      if (!filePath || !fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Not found' });
       }
 
@@ -261,7 +281,7 @@ class FilesController {
       const mimeType = mime.lookup(fileDocument.name) || 'application/octet-stream';
 
       // Read the content of the file
-      const fileContent = await readFileAsync(fileDocument.localPath);
+      const fileContent = await readFileAsync(filePath);
 
       // Return the content of the file with the correct MIME type
       res.setHeader('Content-Type', mimeType);
